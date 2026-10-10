@@ -19,6 +19,9 @@
 #include "engine.h"
 #include "font8x8.h"
 #include "gui.h"
+#include "benchmark.h"
+#include <thread>
+#include <mutex>
 
 int main(int argc, char* argv[]) {
     std::cout << "========================================================\n"
@@ -184,6 +187,21 @@ int main(int argc, char* argv[]) {
     gui.on_fit_canvas = [&]() {
         gui.fit_to_canvas(grid_w, grid_h);
         gui.status_msg = "Fit entire grid inside canvas.";
+    };
+
+    gui.on_run_benchmark = [&]() {
+        bool was_running = gui.is_running;
+        gui.is_running = false; // Pause during benchmark
+
+        std::vector<std::pair<int,int>> sizes = {
+            {256, 256}, {512, 512}, {1024, 1024}, {2048, 2048}, {4096, 4096}
+        };
+
+        std::thread([&, was_running, sizes]() {
+            BenchmarkRunner::run(sizes, has_cuda, &gui.bench_suite);
+            gui.is_running = was_running;
+            gui.status_msg = "Benchmark complete! See overlay panel.";
+        }).detach();
     };
 
     // 6. Create SDL Streaming Texture for the Grid

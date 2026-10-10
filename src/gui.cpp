@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
+#include <cstdio>
 
 bool UIButton::handle_event(const SDL_Event& e) {
     if (e.type == SDL_MOUSEMOTION) {
@@ -245,7 +246,31 @@ void GUI::update_layout(int win_w, int win_h) {
     engine_note_y = sy;
     sy += 18;
 
-    // --- Section 7: Camera & View ---
+    // --- Section 7: Benchmark ---
+    section_labels.push_back({ "--- BENCHMARK ---", sy });
+    sy += 14;
+
+    buttons.emplace_back(sx, sy, full_w, 24, "RUN CPU vs GPU BENCH", [this]() {
+        bool running = false;
+        {
+            std::lock_guard<std::mutex> lock(bench_suite.mtx);
+            running = bench_suite.is_running;
+        }
+        if (!running) {
+            show_bench_overlay = true;
+            if (on_run_benchmark) on_run_benchmark();
+        }
+    });
+    buttons.back().override_color = UITheme::BTN_ACTIVE;
+    buttons.back().custom_color = true;
+    sy += 28;
+
+    buttons.emplace_back(sx, sy, full_w, 20, "CLOSE RESULTS", [this]() {
+        show_bench_overlay = false;
+    });
+    sy += 24;
+
+    // --- Section 8: Camera & View ---
     section_labels.push_back({ "--- CAMERA / VIEW ---", sy });
     sy += 14;
 
@@ -490,4 +515,71 @@ void GUI::draw(SDL_Renderer* renderer, FontRenderer& font, unsigned long long ge
                     << " | ZOOM: " << (int)(zoom * 100.0f) << "%";
     int right_text_w = font.get_text_width(ss_status_right.str(), 1);
     font.draw_text(ss_status_right.str(), window_width - right_text_w - 14, status_rect.y + 10, UITheme::TEXT_MUTED, 1);
+
+    if (show_bench_overlay) {
+        draw_benchmark_overlay(renderer, font);
+    }
+}
+
+void GUI::draw_benchmark_overlay(SDL_Renderer* renderer, FontRenderer& font) {
+    // Darken canvas
+    SDL_SetRenderDrawColor(renderer, 10, 10, 15, 230);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_RenderFillRect(renderer, &canvas_rect);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+    int cx = canvas_rect.x + canvas_rect.w / 2;
+    int cy = canvas_rect.y + 40;
+
+    font.draw_text_centered("BENCHMARK RESULTS", cx, cy, UITheme::TEXT_TITLE, 2);
+    cy += 40;
+
+    std::string header = "ENGINE     | GRID       | GEN/S      | ms/step | SPEEDUP | MEM(MB)";
+    std::string sep    = "-----------+------------+------------+---------+---------+--------";
+    font.draw_text_centered(header, cx, cy, UITheme::TEXT_NORMAL, 1); cy += 20;
+    font.draw_text_centered(sep, cx, cy, UITheme::TEXT_MUTED, 1); cy += 20;
+
+    std::vector<BenchmarkResult> results_copy;
+    bool is_running = false;
+    bool is_done = false;
+    int current_step = 0;
+    int total_steps = 0;
+    {
+        std::lock_guard<std::mutex> lock(bench_suite.mtx);
+        results_copy = bench_suite.results;
+        is_running = bench_suite.is_running;
+        is_done = bench_suite.is_done;
+        current_step = bench_suite.current_step;
+        total_steps = bench_suite.total_steps;
+    }
+
+    int start_x = cx - font.get_text_width(header, 1) / 2;
+
+    for (const auto& res : results_copy) {
+        char buf[128];
+        std::string speedup_str = "-";
+        if (res.speedup > 0) {
+            snprintf(buf, sizeof(buf), "%5.1fx", res.speedup);
+            speedup_str = buf;
+        }
+
+        snprintf(buf, sizeof(buf), "%-10s | %4dx%-4d | %10.1f | %6.2fms | %7s | %6.1f",
+            res.engine_name.c_str(), res.grid_w, res.grid_h, res.gen_per_sec, res.step_ms, speedup_str.c_str(), res.memory_mb);
+
+        SDL_Color row_color = UITheme::TEXT_NORMAL;
+        if (res.engine_name == "CUDA GPU") row_color = UITheme::ACCENT_GREEN;
+        else if (res.engine_name == "CPU") row_color = UITheme::ACCENT_BLUE;
+
+        font.draw_text(buf, start_x, cy, row_color, 1);
+        cy += 20;
+    }
+
+    cy += 20;
+    if (is_running) {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "RUNNING... [ %d / %d tests complete ]", current_step, total_steps);
+        font.draw_text_centered(buf, cx, cy, UITheme::ACCENT_AMBER, 1);
+    } else if (is_done) {
+        font.draw_text_centered("BENCHMARK COMPLETE", cx, cy, UITheme::TEXT_TITLE, 1);
+    }
 }

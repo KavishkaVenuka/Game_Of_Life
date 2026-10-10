@@ -27,6 +27,7 @@ HAS_NVCC := $(shell which nvcc 2>/dev/null)
 # Objects
 BASE_OBJS = $(BUILD_DIR)/font8x8.o \
             $(BUILD_DIR)/gui.o \
+            $(BUILD_DIR)/benchmark.o \
             $(BUILD_DIR)/engine_cpu.o \
             $(BUILD_DIR)/engine_factory.o \
             $(BUILD_DIR)/main.o

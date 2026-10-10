@@ -17,6 +17,7 @@
 #include <functional>
 #include "font8x8.h"
 #include "patterns.h"
+#include "benchmark.h"
 
 namespace UITheme {
     const SDL_Color BG_DARK        = { 18,  18,  22, 255 }; // #121216
@@ -137,6 +138,11 @@ public:
     std::function<void()> on_reset_view;
     std::function<void()> on_fit_canvas;
     std::function<void(int new_w, int new_h)> on_change_grid_size;
+    std::function<void()> on_run_benchmark;
+
+    // Benchmark state
+    BenchmarkSuite bench_suite;
+    bool show_bench_overlay = false;
 
     GUI();
     void init(int win_w, int win_h);
@@ -147,6 +153,7 @@ public:
 
     bool handle_event(const SDL_Event& e);
     void draw(SDL_Renderer* renderer, FontRenderer& font, unsigned long long gen, int population, float fps, int grid_w, int grid_h);
+    void draw_benchmark_overlay(SDL_Renderer* renderer, FontRenderer& font);
 
     // Coordinate conversion
     void screen_to_grid(int screen_x, int screen_y, int grid_w, int grid_h, int& grid_x, int& grid_y) const;
