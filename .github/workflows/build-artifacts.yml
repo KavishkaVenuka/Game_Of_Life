@@ -39,6 +39,7 @@ jobs:
               -Iinclude \
               src/font8x8.cpp \
               src/gui.cpp \
+              src/benchmark.cpp \
               src/engine_cpu.cpp \
               src/engine_factory.cpp \
               src/main.cpp \
@@ -99,6 +100,7 @@ jobs:
               -I"$SDL_PREFIX/include/SDL2" \
               src/font8x8.cpp \
               src/gui.cpp \
+              src/benchmark.cpp \
               src/engine_cpu.cpp \
               src/engine_factory.cpp \
               src/main.cpp \
